@@ -1,0 +1,4 @@
+alias c=clear
+alias h=history
+alias l='ls -al'
+alias p='ps -aef'

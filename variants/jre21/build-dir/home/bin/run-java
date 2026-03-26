@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+JAVA_OPTS="-Duser.timezone=$TZ"
+if [[ -n ${UCI_JRE_DEFAULT_OPTS} ]]; then
+    JAVA_OPTS="${JAVA_OPTS} ${UCI_JRE_DEFAULT_OPTS}"
+fi
+if [[ -n ${UCI_JRE_GC_OPTS} ]]; then
+    JAVA_OPTS="${JAVA_OPTS} ${UCI_JRE_GC_OPTS}"
+fi
+if [[ -n ${UCI_JRE_CUSTOM_OPTS} ]]; then
+    JAVA_OPTS="${JAVA_OPTS} ${UCI_JRE_CUSTOM_OPTS}"
+fi
+if [[ ${UCI_JRE_SHOW_OPTS:-true} == true ]]; then
+    echo "Java Options:" >&2
+    for opt in $JAVA_OPTS; do
+        echo "    $opt" >&2
+    done
+    echo >&2
+    ## 'show vm settings'
+    JAVA_OPTS="${JAVA_OPTS} -XshowSettings:vm"
+fi
+
+/usr/bin/java ${JAVA_OPTS} "$@"

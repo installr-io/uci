@@ -1,0 +1,54 @@
+name: Release UCI
+
+on:
+    push:
+        tags:
+            - "[0-9]+.[0-9]+.[0-9]"
+
+env:
+    REGISTRY: ghcr.io
+
+jobs:
+    build-and-package:
+        permissions:
+            contents: read
+            packages: write
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Log into registry ${{ env.REGISTRY }}
+              uses: docker/login-action@v4
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.PA_TOKEN }}
+
+            - name: Build & push base
+              env:
+                  tag: ${{ github.ref_name }}
+              run: ./build --tag ${tag} --push base
+
+            - name: Build & push jre21
+              env:
+                  tag: ${{ github.ref_name }}
+              run: ./build --tag ${tag} --push jre21
+
+    create-release:
+        needs: build-and-package
+        permissions:
+            contents: write
+        runs-on: ubuntu-latest
+        steps:
+            - name: Release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  tag: ${{ github.ref_name }}
+              run: |
+                gh release create \
+                    --repo="$GITHUB_REPOSITORY" \
+                    --title="${tag}" \
+                    --generate-notes \
+                    --fail-on-no-commits \
+                    --verify-tag \
+                    "$tag"
