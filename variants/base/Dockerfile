@@ -1,4 +1,6 @@
-FROM alpine:3.23
+ARG version
+
+FROM alpine:${version:-3.23}
 LABEL org.opencontainers.image.source=https://github.com/installr-io/uci
 
 USER root

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -e
+
+get_version() {
+    local product=$1
+    local release=$2
+
+    curl \
+    -fsSL \
+    -H 'accept: application/json' \
+    -X 'GET' "https://endoflife.date/api/v1/products/${product}/releases/${release}" \
+    | jq -r '.result.latest.name'
+}
+
+if [[ -z $1 ]]; then
+    echo "usage: $0 <variant>"
+    exit 1
+fi
+VARIANT=$1
+BASEDIR=$(realpath $(dirname $0))
+
+PRODUCT_FILE=${BASEDIR}/variants/${VARIANT}/product
+PRODUCT_NAME=$(cat ${PRODUCT_FILE} | jq -r '.name')
+PRODUCT_VERSION=$(cat ${PRODUCT_FILE} | jq -r '.version')
+
+VERSIONFILE=${BASEDIR}/variants/${VARIANT}/version
+CURRENT_VERSION=$(cat ${VERSIONFILE})
+echo "Current version: '${CURRENT_VERSION}'"
+echo "Checking for new version..."
+NEW_VERSION=$(get_version ${PRODUCT_NAME} ${PRODUCT_VERSION})
+if [[ ${NEW_VERSION} == ${CURRENT_VERSION} ]]; then
+    echo "No new version found."
+    exit 0
+fi
+echo "New version found: ${NEW_VERSION}"
+echo "Updating version..."
+echo -n ${NEW_VERSION} > ${VERSIONFILE}
+echo "done"

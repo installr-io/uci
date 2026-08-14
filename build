@@ -75,6 +75,7 @@ fi
 
 BUILDDIR=${BASEDIR}/variants/${VARIANT}/build-dir
 DOCKERFILE=${BASEDIR}/variants/${VARIANT}/Dockerfile
+VERSIONFILE=${BASEDIR}/variants/${VARIANT}/version
 PREFIX="${VARIANT#base}"
 IMAGE=ghcr.io/installr-io/uci:${PREFIX:+${PREFIX}-}
 
@@ -88,6 +89,7 @@ docker build \
     --tag ${IMAGE}${TAG%.*} \
     --tag ${IMAGE}${TAG%%.*} \
     --file ${DOCKERFILE} \
+    --build-arg version=$(cat ${VERSIONFILE}) \
     ${OPTS} \
     ${BUILDDIR}
 
