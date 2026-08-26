@@ -5,6 +5,12 @@ on:
         tags:
             - "[0-9]+.[0-9]+.[0-9]"
 
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: Version tag to release
+                required: true
+
 env:
     REGISTRY: ghcr.io
 
@@ -26,12 +32,12 @@ jobs:
 
             - name: Build & push base
               env:
-                  tag: ${{ github.ref_name }}
+                  tag: ${{ inputs.tag || github.ref_name }}
               run: ./build --tag ${tag} --push base
 
             - name: Build & push jre21
               env:
-                  tag: ${{ github.ref_name }}
+                  tag: ${{ inputs.tag || github.ref_name }}
               run: ./build --tag ${tag} --push jre21
 
     create-release:
@@ -43,7 +49,7 @@ jobs:
             - name: Release
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  tag: ${{ github.ref_name }}
+                  tag: ${{ inputs.tag || github.ref_name }}
               run: |
                 gh release create \
                     --repo="$GITHUB_REPOSITORY" \

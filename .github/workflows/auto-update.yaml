@@ -1,0 +1,90 @@
+name: Auto Update
+
+on:
+    schedule:
+        - cron: '0 0 * * *'
+    workflow_dispatch:
+
+jobs:
+    auto-update:
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/main'
+        permissions:
+            contents: write
+            actions: write
+            checks: read
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Configure git
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            - name: Update base image
+              id: base
+              run: |
+                  ./auto-update base
+                  [[ -n "$(git status --porcelain)" ]] && echo "changed=true" >> $GITHUB_OUTPUT || true
+
+            - name: Commit base image update
+              if: steps.base.outputs.changed == 'true'
+              run: |
+                  git add -A
+                  git commit -m "Update base image"
+
+            - name: Update jre21 image
+              id: jre21
+              run: |
+                  ./auto-update jre21
+                  [[ -n "$(git status --porcelain)" ]] && echo "changed=true" >> $GITHUB_OUTPUT || true
+
+            - name: Commit jre21 image update
+              if: steps.jre21.outputs.changed == 'true'
+              run: |
+                  git add -A
+                  git commit -m "Update jre21 image"
+
+            - name: Push commits
+              if: steps.base.outputs.changed == 'true' || steps.jre21.outputs.changed == 'true'
+              run: git push
+
+            - name: Trigger build workflow
+              if: steps.base.outputs.changed == 'true' || steps.jre21.outputs.changed == 'true'
+              run: gh workflow run build.yaml
+              env:
+                  GH_TOKEN: ${{ github.token }}
+
+            - name: Wait for build
+              if: steps.base.outputs.changed == 'true' || steps.jre21.outputs.changed == 'true'
+              run: |
+                  sleep 5
+                  RUN_ID=$(gh run list --workflow=build.yaml --limit=1 --json databaseId --jq '.[0].databaseId')
+                  gh run watch "$RUN_ID" --exit-status
+              env:
+                  GH_TOKEN: ${{ github.token }}
+
+            - name: Create version tag
+              if: steps.base.outputs.changed == 'true' || steps.jre21.outputs.changed == 'true'
+              id: tag
+              run: |
+                  git fetch --tags
+                  LATEST=$(git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+                  if [[ -z "$LATEST" ]]; then
+                      NEW_TAG="1.0.0"
+                  else
+                      MAJOR=$(echo "$LATEST" | cut -d. -f1)
+                      MINOR=$(echo "$LATEST" | cut -d. -f2)
+                      PATCH=$(echo "$LATEST" | cut -d. -f3)
+                      NEW_TAG="$MAJOR.$MINOR.$((PATCH + 1))"
+                  fi
+                  git tag "$NEW_TAG"
+                  git push origin "$NEW_TAG"
+                  echo "value=$NEW_TAG" >> $GITHUB_OUTPUT
+
+            - name: Trigger release workflow
+              if: steps.base.outputs.changed == 'true' || steps.jre21.outputs.changed == 'true'
+              run: gh workflow run release.yaml -f tag=${{ steps.tag.outputs.value }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
